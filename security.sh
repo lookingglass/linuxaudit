@@ -2,10 +2,6 @@
 
 set -uo pipefail
 
-if [[ $EUID -ne 0 ]]; then
-    echo "Root reqiured to execute script"
-    exit 1
-fi
 
 VERBOSE=false
 
@@ -33,6 +29,16 @@ function print_ok {
     echo "[OK] $1"
 }
 
+function is_root {
+
+    if [[ $EUID -ne 0 ]]; then
+        return 1
+    else
+        return 0
+    fi
+
+}
+
 function detect_os {
     if [[ -f /etc/debian_version ]]; then
         OS_TYPE="Debian"
@@ -51,21 +57,38 @@ function get_ip {
 # security checks
 
 function check_password_auth { 
-    CONFIG_VALUE=$(sshd -T | grep "passwordauthentication" | awk '{print $2}')
-    if [[ "$CONFIG_VALUE" == "no" ]]; then
-        [ $VERBOSE == true ] && print_ok "Auth by password is disabled."
-    else
-        echo "${SEVERITY_MEDIUM}Auth by password is enabled."
+    if is_root; then
+        CONFIG_VALUE=$(sshd -T | grep "passwordauthentication" | awk '{print $2}')
+        if [[ "$CONFIG_VALUE" == "no" ]]; then
+            [ $VERBOSE == true ] && print_ok "Auth by password is disabled."
+        else
+            echo "${SEVERITY_MEDIUM}Auth by password is enabled."
+        fi
     fi
 
 }
 
 function check_root_login {
-    CONFIG_VALUE=$(sshd -T | grep "permitrootlogin" | awk '{print $2}')
-    if [[ "$CONFIG_VALUE" == "yes" ]]; then
-        echo "${SEVERITY_HIGH}Logging as root is enabled."
-    else
-        [ $VERBOSE == true ] && print_ok "Logging as root is disabled"
+
+    if is_root; then
+        CONFIG_VALUE=$(sshd -T | grep "permitrootlogin" | awk '{print $2}')
+        if [[ "$CONFIG_VALUE" == "yes" ]]; then
+            echo "${SEVERITY_HIGH}Logging as root is enabled."
+        else
+            [ $VERBOSE == true ] && print_ok "Logging as root is disabled"
+        fi
+    fi
+}
+
+
+function check_if_allowed_empty_passwords {
+        if is_root; then
+        CONFIG_VALUE=$(sshd -T | grep "permitemptypasswords" | awk '{print $2}')
+        if [[ "$CONFIG_VALUE" == "no" ]]; then
+            [ $VERBOSE == true ] && print_ok "Empty passwords are not allowed."
+        else
+            echo "${SEVERITY_CRITICAL}Empty passwords ARE ALLOWED!!!"
+        fi
     fi
 }
 
@@ -75,15 +98,6 @@ function check_docker_priveleges {
         [ $VERBOSE == true ] && print_ok "No users found in group 'docker'."
     else
         echo "${SEVERITY_MEDIUM}Users found in group 'docker': $check_perms. Potential privelege escalation via host escape."
-    fi
-}
-
-function check_if_allowed_empty_passwords {
-    CONFIG_VALUE=$(sshd -T | grep "permitemptypasswords" | awk '{print $2}')
-    if [[ "$CONFIG_VALUE" == "no" ]]; then
-        [ $VERBOSE == true ] && print_ok "Empty passwords is not allowed."
-    else
-        echo "${SEVERITY_CRITICAL}Empty passwords IS ALLOWED!!!"
     fi
 }
 
@@ -148,6 +162,9 @@ function execute {
     fi
     if [[ "$OS_TYPE" == "Debian" ]]; then
         check_apparmor
+    fi
+    if ! is_root; then
+        echo "Some checks was skipped because root required"
     fi
 }
 
