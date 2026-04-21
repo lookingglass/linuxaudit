@@ -5,7 +5,6 @@ set -uo pipefail
 
 VERBOSE=false
 
-
 #SEVERITY_OK="[OK] "
 SEVERITY_LOW="[LOW] "
 SEVERITY_MEDIUM="[MEDIUM] "
