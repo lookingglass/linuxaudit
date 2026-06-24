@@ -3,9 +3,10 @@
 Small system security audit script // WIP
 
 ## Features
-- SSH checks (SSH port, PermitRootLogin etc)
-- Distro-specific checks (SELinux, AppArmor etc)
-- Other checks
+- SSH checks (SSH port, PermitRootLogin etc),
+- Distro-specific checks (SELinux, AppArmor etc),
+- Docker checks,
+- Firewall and others checks.
 
 ## Usage
 ```bash
